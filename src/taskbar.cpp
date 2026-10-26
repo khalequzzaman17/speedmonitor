@@ -142,23 +142,74 @@ void TaskbarWindow::ReAnchorToTaskbar() {
     }
 
     int width = m_settings.customWidthPx;
-    int height = m_settings.customHeightPx;
+    int taskbarHeight = rcTray.bottom - rcTray.top;
 
-    int posX = 0;
-    int posY = 0;
-
-    // Standard bottom taskbar
+    // Horizontal taskbar (bottom or top)
     if (rcTray.bottom - rcTray.top <= rcTray.right - rcTray.left) {
-        // Horizontal taskbar (bottom or top)
-        posX = rcNotify.left - width - m_settings.horizontalMarginPx;
-        posY = rcTray.top + ((rcTray.bottom - rcTray.top) - height) / 2;
+        int posX = rcNotify.left - width - m_settings.horizontalMarginPx;
+        int posY = rcTray.top;
+        SetWindowPos(m_hwnd, HWND_TOPMOST, posX, posY, width, taskbarHeight, SWP_SHOWWINDOW | SWP_NOACTIVATE);
     } else {
         // Vertical taskbar (left or right)
-        posX = rcTray.left + ((rcTray.right - rcTray.left) - width) / 2;
-        posY = rcNotify.top - height - m_settings.horizontalMarginPx;
+        int taskbarWidth = rcTray.right - rcTray.left;
+        int posX = rcTray.left;
+        int posY = rcNotify.top - m_settings.customHeightPx - m_settings.horizontalMarginPx;
+        SetWindowPos(m_hwnd, HWND_TOPMOST, posX, posY, taskbarWidth, m_settings.customHeightPx, SWP_SHOWWINDOW | SWP_NOACTIVATE);
+    }
+}
+
+COLORREF TaskbarWindow::DetectTaskbarColor() {
+    HWND hTray = FindWindowW(L"Shell_TrayWnd", nullptr);
+    if (hTray) {
+        RECT rcTray{};
+        GetWindowRect(hTray, &rcTray);
+
+        HWND hNotify = FindWindowExW(hTray, nullptr, L"TrayNotifyWnd", nullptr);
+        RECT rcNotify = rcTray;
+        if (hNotify) {
+            GetWindowRect(hNotify, &rcNotify);
+        }
+
+        HDC hdcScreen = GetDC(nullptr);
+        if (hdcScreen) {
+            // Sample point 1: Just left of TrayNotifyWnd, along top margin of taskbar
+            int sampleX = rcNotify.left - 2;
+            int sampleY = rcTray.top + 5;
+            COLORREF pix = GetPixel(hdcScreen, sampleX, sampleY);
+
+            // Sample point 2: If sample 1 is black or invalid, sample 100px from left
+            if (pix == CLR_INVALID || pix == RGB(0, 0, 0)) {
+                sampleX = rcTray.left + 100;
+                sampleY = rcTray.top + 5;
+                pix = GetPixel(hdcScreen, sampleX, sampleY);
+            }
+
+            ReleaseDC(nullptr, hdcScreen);
+
+            if (pix != CLR_INVALID && pix != RGB(0, 0, 0)) {
+                m_taskbarColor = pix;
+                return m_taskbarColor;
+            }
+        }
     }
 
-    SetWindowPos(m_hwnd, HWND_TOPMOST, posX, posY, width, height, SWP_SHOWWINDOW | SWP_NOACTIVATE);
+    // Fallback: Registry DWM Colorization
+    HKEY hKey;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\DWM", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        DWORD colorization = 0;
+        DWORD cbData = sizeof(colorization);
+        if (RegQueryValueExW(hKey, L"ColorizationColor", nullptr, nullptr, (LPBYTE)&colorization, &cbData) == ERROR_SUCCESS) {
+            RegCloseKey(hKey);
+            BYTE r = (colorization >> 16) & 0xFF;
+            BYTE g = (colorization >> 8) & 0xFF;
+            BYTE b = colorization & 0xFF;
+            m_taskbarColor = RGB(r, g, b);
+            return m_taskbarColor;
+        }
+        RegCloseKey(hKey);
+    }
+
+    return m_taskbarColor;
 }
 
 void TaskbarWindow::UpdateDisplay() {
@@ -183,18 +234,25 @@ void TaskbarWindow::OnPaint(HDC hdc) {
     HBITMAP hbm = CreateCompatibleBitmap(hdc, w, h);
     HBITMAP hOldBm = (HBITMAP)SelectObject(hdcMem, hbm);
 
-    // Fluent Dark Background Fill
-    HBRUSH hBgBrush = CreateSolidBrush(RGB(20, 20, 24));
-    FillRect(hdcMem, &rcClient, hBgBrush);
-    DeleteObject(hBgBrush);
+    if (m_settings.dockToTaskbar) {
+        // Seamless Taskbar Mode: Auto-detect taskbar background color without border
+        COLORREF taskbarColor = DetectTaskbarColor();
+        HBRUSH hBgBrush = CreateSolidBrush(taskbarColor);
+        FillRect(hdcMem, &rcClient, hBgBrush);
+        DeleteObject(hBgBrush);
+    } else {
+        // Floating Desktop Mode: Sleek rounded card with subtle outline
+        HBRUSH hBgBrush = CreateSolidBrush(RGB(20, 20, 24));
+        FillRect(hdcMem, &rcClient, hBgBrush);
+        DeleteObject(hBgBrush);
 
-    // Draw subtle border
-    HPEN hPen = CreatePen(PS_SOLID, 1, RGB(45, 45, 55));
-    HPEN hOldPen = (HPEN)SelectObject(hdcMem, hPen);
-    SelectObject(hdcMem, GetStockObject(NULL_BRUSH));
-    RoundRect(hdcMem, rcClient.left, rcClient.top, rcClient.right, rcClient.bottom, 6, 6);
-    SelectObject(hdcMem, hOldPen);
-    DeleteObject(hPen);
+        HPEN hPen = CreatePen(PS_SOLID, 1, RGB(55, 55, 70));
+        HPEN hOldPen = (HPEN)SelectObject(hdcMem, hPen);
+        SelectObject(hdcMem, GetStockObject(NULL_BRUSH));
+        RoundRect(hdcMem, rcClient.left, rcClient.top, rcClient.right, rcClient.bottom, 6, 6);
+        SelectObject(hdcMem, hOldPen);
+        DeleteObject(hPen);
+    }
 
     SetBkMode(hdcMem, TRANSPARENT);
     HFONT hOldFont = (HFONT)SelectObject(hdcMem, m_hFont);
@@ -205,8 +263,8 @@ void TaskbarWindow::OnPaint(HDC hdc) {
                                               : (m_settings.prefixUpload + m_currentSnapshot.formattedUpload);
 
     int lineH = h / 2;
-    RECT rcLine1 = { 6, 1, w - 4, lineH };
-    RECT rcLine2 = { 6, lineH - 1, w - 4, h };
+    RECT rcLine1 = { 4, 1, w - 2, lineH };
+    RECT rcLine2 = { 4, lineH - 1, w - 2, h };
 
     // Draw text with 1px drop-shadow glow
     auto DrawShadowedText = [&](const std::wstring& text, RECT& rect, COLORREF mainColor) {

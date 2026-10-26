@@ -45,6 +45,7 @@ Older utilities (such as NetSpeedMonitor 2010) were designed during the Windows 
   - `MiB/s` (Binary mebibytes)
   - `MB/min` (Volume per minute)
 - 🖥️ **High-DPI ClearType Typography**: Supports Per-Monitor DPI Awareness v2 with double-buffered GDI rendering and customizable fonts (Segoe UI default).
+- 🎨 **Seamless Taskbar Integration**: Automatically detects and matches your Windows taskbar's exact background color (Light, Dark, Accent, or Custom themes) without any borders or boxes.
 - 🪶 **Ultra-Lightweight (<1 MB)**: Statically linked standalone executable. Zero runtime dependencies, no .NET runtimes, no Visual C++ Redistributable packages required!
 - ⚙️ **Portable INI Configuration**: Saves settings automatically to `%APPDATA%\SpeedMonitor\config.ini`.
 - 🏷️ **Embedded Windows Metadata**: Version, author (`Khalequzzaman`), and product metadata are embedded directly into the PE executable via `resource.rc`.
@@ -73,13 +74,13 @@ Older utilities (such as NetSpeedMonitor 2010) were designed during the Windows 
 - **GCC / MinGW-w64** (C++20 capable, GCC 13+) with `windres`.
 
 ### Build with MinGW (Windows / Command Prompt)
-Run the automated build script:
+Run the automated build script (automatically detects MinGW / Scoop):
 ```cmd
 build.bat
 ```
 The optimized, stripped binary will be generated at:
 ```
-bin\SpeedMonitor.exe  (Size: ~0.97 MB)
+bin\SpeedMonitor.exe  (Size: ~1.0 MB)
 ```
 
 ### Build with Make
@@ -93,13 +94,15 @@ make
 
 ```
 ├── src/
-│   ├── main.cpp                   # Application entry point & single-instance mutex
-│   ├── types.hpp                  # Data models, telemetry structs, unit conversion
-│   ├── telemetry.hpp / .cpp       # NDIS 6.0+ GetIfEntry2 & QPC sampling engine
+│   ├── app.ico                    # Multi-resolution application & tray icon (256x256 to 16x16)
 │   ├── config.hpp / .cpp          # Persistent INI configuration manager
-│   ├── taskbar.hpp / .cpp         # Out-of-process taskbar hook & GDI renderer
-│   └── resource.rc                # Windows Version & Author metadata resource
-├── build.bat                      # One-click build script for MinGW
+│   ├── main.cpp                   # Application entry point & single-instance mutex
+│   ├── resource.rc                # Windows Version, Icon & Author metadata
+│   ├── taskbar.hpp / .cpp         # Taskbar hook, auto-color detection & ClearType renderer
+│   ├── telemetry.hpp / .cpp       # NDIS 6.0+ GetIfEntry2 & QPC sampling engine
+│   └── types.hpp                  # Data models, telemetry structs, unit conversion
+├── .gitignore                     # Git ignore rules
+├── build.bat                      # One-click build script with auto-detect compiler
 ├── Makefile                       # Cross-platform Makefile
 ├── LICENSE                        # MIT License
 └── README.md                      # Project documentation

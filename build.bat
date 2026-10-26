@@ -10,6 +10,10 @@ echo =======================================================
 :: Setup build directory
 if not exist "bin" mkdir bin
 
+:: Terminate running instance if any to avoid file lock
+taskkill /F /IM SpeedMonitor.exe >nul 2>nul
+timeout /t 1 /nobreak >nul 2>nul
+
 :: Find G++ compiler and windres (Auto-detect PATH, Scoop MinGW via %USERPROFILE%, or standard locations)
 where g++ >nul 2>nul
 if %ERRORLEVEL% equ 0 (

@@ -53,4 +53,7 @@ private:
     void SetupTrayIcon();
     void RemoveTrayIcon();
     void UpdateTrayTooltip(const SpeedSnapshot& snapshot);
+    COLORREF DetectTaskbarColor();
+
+    COLORREF m_taskbarColor = RGB(31, 37, 23);
 };
