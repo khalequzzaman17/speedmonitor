@@ -11,8 +11,22 @@ echo =======================================================
 if not exist "bin" mkdir bin
 
 :: Terminate running instance if any to avoid file lock
-taskkill /F /IM SpeedMonitor.exe >nul 2>nul
-timeout /t 1 /nobreak >nul 2>nul
+taskkill /F /IM SpeedMonitor.exe /T >nul 2>nul
+taskkill /F /IM NetSpeedMonitorX.exe /T >nul 2>nul
+ping 127.0.0.1 -n 2 >nul 2>nul
+
+:: Ensure old binary is cleanly replaced (handles Windows NTFS file locks)
+if exist "bin\SpeedMonitor.exe" (
+    del /F /Q "bin\SpeedMonitor.exe" >nul 2>nul
+    if exist "bin\SpeedMonitor.exe" (
+        echo [INFO] Unlocking previously compiled file...
+        set "LOCKED_BAK=bin\SpeedMonitor_%RANDOM%.old"
+        move /Y "bin\SpeedMonitor.exe" "!LOCKED_BAK!" >nul 2>nul
+        del /F /Q "!LOCKED_BAK!" >nul 2>nul
+    )
+)
+del /F /Q bin\*.old >nul 2>nul
+del /F /Q "src\resource.o" >nul 2>nul
 
 :: Find G++ compiler and windres (Auto-detect PATH, Scoop MinGW via %USERPROFILE%, or standard locations)
 where g++ >nul 2>nul
