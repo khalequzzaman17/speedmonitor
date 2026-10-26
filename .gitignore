@@ -1,0 +1,18 @@
+# Ignore everything by default
+/*
+
+# Whitelist project files
+!/.gitignore
+!/README.md
+!/LICENSE
+!/build.bat
+!/Makefile
+
+# Whitelist source code
+!/src/
+!/src/**
+
+# Exclude any temporary / build artifacts inside src if any
+*.o
+*.obj
+*.exe
